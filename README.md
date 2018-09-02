@@ -15,7 +15,7 @@ Given one or more public keys, encrypts plain text from stdin and writes [armore
 ## gen.go
 
 Generates a new public/private PGP key pair. For encryption/decryption and signing/verifying.
-Creates <keyname>.pub and <keyname>.priv in working directory.
+Creates `<keyname>.pub` and `<keyname>.priv` in working directory.
 `pgp/gen [-n <fullname>] [-c <comment>] [-m <mail address>] <keyname>`
 
 ## check.go
