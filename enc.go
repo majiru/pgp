@@ -3,12 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
-	"golang.org/x/crypto/openpgp/packet"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 func entityListFromPubKeyFilePaths(keyFilePaths []string) openpgp.EntityList {
@@ -39,7 +40,7 @@ func entityListFromPubKeyFilePaths(keyFilePaths []string) openpgp.EntityList {
 		entityList = append(entityList, pubEntity)
 	}
 
-	return entityList;
+	return entityList
 }
 
 func exitOnError(err error, where string) {

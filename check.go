@@ -3,12 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
-	"golang.org/x/crypto/openpgp/packet"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 )
 
 func exitOnError(err error, where string) {
@@ -59,7 +60,6 @@ func main() {
 
 	stdinBytes, err := ioutil.ReadAll(os.Stdin)
 	exitOnError(err, "reading stdin")
-
 
 	signer, err := openpgp.CheckArmoredDetachedSignature(entityList, bytes.NewReader(stdinBytes), bytes.NewReader(sigBytes))
 	if err == io.EOF {

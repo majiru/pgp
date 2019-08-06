@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"golang.org/x/crypto/openpgp"
-	"golang.org/x/crypto/openpgp/armor"
 	"io"
 	"io/ioutil"
 	"os"
+
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 )
 
 func exitOnError(err error, where string) {
@@ -59,7 +60,7 @@ func main() {
 		exitOnError(err, "decoding message armor")
 	}
 
-	mesg, err := openpgp.ReadMessage(cipherReader, entityList, nil , nil)
+	mesg, err := openpgp.ReadMessage(cipherReader, entityList, nil, nil)
 	exitOnError(err, "decrypting message")
 
 	bytes, err := ioutil.ReadAll(mesg.UnverifiedBody)
