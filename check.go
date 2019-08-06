@@ -12,6 +12,8 @@ import (
 )
 
 func main() {
+	log.SetFlags(0)
+
 	if len(os.Args) != 3 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <signature file> <public key file>\n", os.Args[0])
 		os.Exit(0)
