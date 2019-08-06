@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"os"
 
 	"golang.org/x/crypto/openpgp"
@@ -12,61 +11,50 @@ import (
 	"golang.org/x/crypto/openpgp/packet"
 )
 
-func exitOnError(err error, where string) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR upon %s:\n%v\n", where, err)
-		os.Exit(1)
-	}
-}
-
 func main() {
-	var pubFile *os.File
-	var err error
-
 	if len(os.Args) != 3 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <signature file> <public key file>\n", os.Args[0])
 		os.Exit(0)
 	}
 
 	sigFile, err := os.Open(os.Args[1])
-	exitOnError(err, "opening signature file")
-	sigBytes, err := ioutil.ReadAll(sigFile)
-	exitOnError(err, "reading stdin")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer sigFile.Close()
 
-	var entityList openpgp.EntityList
-	entityList = []*openpgp.Entity{}
-
-	pubFile, err = os.Open(os.Args[2])
-	exitOnError(err, "opening public key")
-
-	pubBytes, err := ioutil.ReadAll(pubFile)
-	exitOnError(err, fmt.Sprintf("reading from public key"))
-	pubFile.Close()
+	pubFile, err := os.Open(os.Args[2])
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer pubFile.Close()
 
 	var pubReader *packet.Reader
 
-	block, err := armor.Decode(bytes.NewReader(pubBytes))
-	if err == nil {
+	block, err := armor.Decode(pubFile)
+	switch err {
+	default:
+		log.Fatal(err)
+	case nil:
 		pubReader = packet.NewReader(block.Body)
-	} else if err == io.EOF {
-		pubReader = packet.NewReader(bytes.NewReader(pubBytes))
-	} else {
-		exitOnError(err, fmt.Sprintf("decoding public key"))
+	case io.EOF:
+		pubFile.Seek(0, io.SeekStart)
+		pubReader = packet.NewReader(pubFile)
 	}
 
 	pubEntity, err := openpgp.ReadEntity(pubReader)
-	exitOnError(err, fmt.Sprintf("reading entity from public key"))
-	entityList = append(entityList, pubEntity)
-
-	stdinBytes, err := ioutil.ReadAll(os.Stdin)
-	exitOnError(err, "reading stdin")
-
-	signer, err := openpgp.CheckArmoredDetachedSignature(entityList, bytes.NewReader(stdinBytes), bytes.NewReader(sigBytes))
-	if err == io.EOF {
-		signer, err = openpgp.CheckDetachedSignature(entityList, bytes.NewReader(stdinBytes), bytes.NewReader(sigBytes))
-		exitOnError(err, "verifying data")
-	} else {
-		exitOnError(err, "verifying armored data")
+	if err != nil {
+		log.Fatal(err)
 	}
-	fmt.Println(signer)
+
+	entityList := openpgp.EntityList{pubEntity}
+	_, err = openpgp.CheckArmoredDetachedSignature(entityList, os.Stdin, sigFile)
+	if err == io.EOF {
+		sigFile.Seek(0, io.SeekStart)
+		_, err = openpgp.CheckDetachedSignature(entityList, os.Stdin, sigFile)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Message is signed with provided public key")
 }
