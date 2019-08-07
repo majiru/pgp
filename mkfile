@@ -13,7 +13,7 @@ TARG=\
 PROGS=${TARG:%=%.go}
 
 %.go:
-	go build $stem.go
+	GOARCH=$objtype go build $stem.go
 
 all:V: $PROGS
 
