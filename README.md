@@ -29,15 +29,5 @@ Given a private key, writes [armored] detached signature to stdout.
 `pgp/sign [-a] <private key>`
 
 # TODO
-
-## Create mkfile
-
-Write an mkfile with support for cross compilation which places binaries inside /$objtype/bin/pgp
-
-## Create man page
-
-Write a decent man page in troff respecting the way they are written Plan 9.
-
-## Improve error handling
-
-Less technical errors might be desirable.
+* Better error messages
+* Man page
