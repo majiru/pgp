@@ -2,9 +2,10 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"os"
 
 	"golang.org/x/crypto/openpgp"
@@ -12,80 +13,79 @@ import (
 	"golang.org/x/crypto/openpgp/packet"
 )
 
-func entityListFromPubKeyFilePaths(keyFilePaths []string) openpgp.EntityList {
-	var entityList openpgp.EntityList
-	entityList = []*openpgp.Entity{}
+func entityListFromPubKeyFilePaths(keyFilePaths ...string) (openpgp.EntityList, error) {
+	entityList := []*openpgp.Entity{}
 
-	for i := 0; i < len(keyFilePaths); i++ {
-		pubFile, err := os.Open(keyFilePaths[i])
-		exitOnError(err, "opening public key")
-
-		pubBytes, err := ioutil.ReadAll(pubFile)
-		exitOnError(err, fmt.Sprintf("reading from public key (%s)", keyFilePaths[i]))
-		pubFile.Close()
+	for _, k := range keyFilePaths {
+		pubFile, err := os.Open(k)
+		if err != nil {
+			return nil, err
+		}
 
 		var pubReader *packet.Reader
-
-		block, err := armor.Decode(bytes.NewReader(pubBytes))
-		if err == nil {
+		block, err := armor.Decode(pubFile)
+		switch err {
+		default:
+			return nil, err
+		case io.EOF:
+			pubFile.Seek(0, io.SeekStart)
+			pubReader = packet.NewReader(pubFile)
+		case nil:
 			pubReader = packet.NewReader(block.Body)
-		} else if err == io.EOF {
-			pubReader = packet.NewReader(bytes.NewReader(pubBytes))
-		} else {
-			exitOnError(err, fmt.Sprintf("decoding armor for public key (%s)", keyFilePaths[i]))
 		}
 
 		pubEntity, err := openpgp.ReadEntity(pubReader)
-		exitOnError(err, fmt.Sprintf("reading public key (%s)", keyFilePaths[i]))
+		if err != nil {
+			return nil, err
+		}
 		entityList = append(entityList, pubEntity)
 	}
 
-	return entityList
-}
-
-func exitOnError(err error, where string) {
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR upon %s:\n%v\n", where, err)
-		os.Exit(1)
-	}
+	return entityList, nil
 }
 
 func main() {
-	var err error
+	var armorFlag = flag.Bool("a", false, "armor")
+	log.SetFlags(0)
 
-	armorFlag := len(os.Args) > 2 && os.Args[1] == "-a"
-	if len(os.Args) < 3 && !(!armorFlag && len(os.Args) == 2) {
-		fmt.Fprintln(os.Stderr, "Usage: pgp/enc [-a] <public keys>")
+	flag.Parse()
+	if flag.NArg() < 1 {
+		fmt.Fprintf(os.Stderr, "Usage: %s [-a] <public keys>\n", os.Args[0])
 		os.Exit(1)
 	}
 
-	var entityList openpgp.EntityList
-	if armorFlag {
-		entityList = entityListFromPubKeyFilePaths(os.Args[2:])
-	} else {
-		entityList = entityListFromPubKeyFilePaths(os.Args[1:])
+	entityList, err := entityListFromPubKeyFilePaths(flag.Args()...)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	cipherBuffer := new(bytes.Buffer)
-	cipherWriter, err := openpgp.Encrypt(cipherBuffer, entityList, nil, nil, nil)
-	exitOnError(err, "opening encryption writer")
+	cipherBuf := new(bytes.Buffer)
+	cipherWriter, err := openpgp.Encrypt(cipherBuf, entityList, nil, nil, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	plainBytes, err := ioutil.ReadAll(os.Stdin)
-	exitOnError(err, "reading from stdin")
-
-	_, err = cipherWriter.Write(plainBytes)
-	exitOnError(err, "writing to encryption write")
+	_, err = io.Copy(cipherWriter, os.Stdin)
+	if err != nil {
+		log.Fatal(err)
+	}
 	cipherWriter.Close()
 
-	if armorFlag {
+	if *armorFlag {
 		armorWriter, err := armor.Encode(os.Stdout, "PGP MESSAGE", nil)
-		exitOnError(err, "opening armor encoder")
-		_, err = armorWriter.Write(cipherBuffer.Bytes())
-		exitOnError(err, "error writing to armor encoder")
-		err = armorWriter.Close()
-		exitOnError(err, "error closing armor encoder")
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		_, err = armorWriter.Write(cipherBuf.Bytes())
+		if err != nil {
+			log.Fatal(err)
+		}
+		armorWriter.Close()
 	} else {
-		_, err = os.Stdout.Write(cipherBuffer.Bytes())
-		exitOnError(err, "error writing to stdout")
+		_, err = os.Stdout.Write(cipherBuf.Bytes())
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
